@@ -214,34 +214,10 @@
   /* ── BOTTLE CANVAS ── */
   #bottleWrap {
     position: relative;
-    width: 220px; height: 220px;
+    width: 240px; height: 240px;
     display: flex; align-items: center; justify-content: center;
   }
-  #bottleCanvas {
-    transition: none;
-    filter: drop-shadow(0 0 12px rgba(240,168,48,0.3));
-  }
-
-  /* player name ring */
-  #playerRing {
-    position: absolute; inset: 0;
-    pointer-events: none;
-  }
-  .ring-name {
-    position: absolute;
-    font-size: 6px;
-    color: var(--soft);
-    text-align: center;
-    transform: translate(-50%, -50%);
-    transition: color 0.2s, text-shadow 0.2s;
-    max-width: 60px;
-    word-break: break-word;
-    line-height: 1.4;
-  }
-  .ring-name.active {
-    color: var(--amber);
-    text-shadow: 0 0 8px rgba(240,168,48,0.8);
-  }
+  #bottleCanvas { transition: none; }
 
   /* ── CURRENT PLAYER ── */
   .current-player {
@@ -367,8 +343,7 @@
   <div class="title" style="font-size:12px;">SPIN &amp; SPILL</div>
 
   <div id="bottleWrap">
-    <div id="playerRing"></div>
-    <canvas id="bottleCanvas" width="100" height="100"></canvas>
+    <canvas id="bottleCanvas" width="240" height="240"></canvas>
   </div>
 
   <div class="current-player" id="currentPlayer">spin to begin!</div>
@@ -577,12 +552,23 @@ function renderPlayerList() {
   document.getElementById('startBtn').disabled = players.length < 2;
 }
 
+// ─── Sector colors (cozy muted palette) ─────────────────
+const SECTOR_COLORS = [
+  { fill: 'rgba(180,100,80,0.45)',  bright: 'rgba(220,130,100,0.75)', border: '#c06848' },
+  { fill: 'rgba(100,150,110,0.45)', bright: 'rgba(130,190,140,0.75)', border: '#60a870' },
+  { fill: 'rgba(90,130,175,0.45)',  bright: 'rgba(120,165,210,0.75)', border: '#5888c0' },
+  { fill: 'rgba(190,150,70,0.45)',  bright: 'rgba(230,185,90,0.75)',  border: '#c8a040' },
+  { fill: 'rgba(140,95,165,0.45)',  bright: 'rgba(175,125,200,0.75)', border: '#9060b8' },
+  { fill: 'rgba(80,155,145,0.45)',  bright: 'rgba(105,195,180,0.75)', border: '#409888' },
+  { fill: 'rgba(175,105,130,0.45)', bright: 'rgba(215,140,165,0.75)', border: '#b86888' },
+  { fill: 'rgba(130,160,75,0.45)',  bright: 'rgba(165,200,100,0.75)', border: '#88aa40' },
+];
+
 // ─── Screens ─────────────────────────────────────────────
 function startGame() {
   document.getElementById('setupScreen').classList.remove('active');
   document.getElementById('gameScreen').classList.add('active');
-  renderRing();
-  drawBottle(0);
+  document.fonts.ready.then(() => drawFrame(0, -1));
 }
 
 function resetGame() {
@@ -597,75 +583,113 @@ function resetGame() {
   hideChoiceAndQuestion();
 }
 
-// ─── Player ring ─────────────────────────────────────────
-function renderRing() {
-  const ring = document.getElementById('playerRing');
-  const cx = 110, cy = 110, r = 95;
-  ring.innerHTML = '';
-  players.forEach((p, i) => {
-    const angle = (2 * Math.PI * i / players.length) - Math.PI / 2;
-    const x = cx + r * Math.cos(angle);
-    const y = cy + r * Math.sin(angle);
-    const div = document.createElement('div');
-    div.className = 'ring-name';
-    div.id = `rn-${i}`;
-    div.style.left = x + 'px';
-    div.style.top  = y + 'px';
-    div.textContent = p;
-    ring.appendChild(div);
-  });
-}
-
-function highlightPlayer(idx) {
-  players.forEach((_, i) => {
-    const el = document.getElementById(`rn-${i}`);
-    if (el) el.classList.toggle('active', i === idx);
-  });
-}
-
-// ─── Pixel bottle on canvas ───────────────────────────────
+// ─── Canvas setup ────────────────────────────────────────
 const canvas = document.getElementById('bottleCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-// Pixel art bottle: each cell is 5×5 px, on a 20×20 grid centered in 100×100
-function drawBottle(angleDeg) {
-  ctx.clearRect(0, 0, 100, 100);
+const CX = 120, CY = 120; // center of 240×240 canvas
+const OUTER_R = 112;
+const INNER_R = 42;
+
+// ─── Draw pie sectors ────────────────────────────────────
+function drawWheel(highlightIdx) {
+  const n = players.length;
+  const step = (2 * Math.PI) / n;
+  const startOff = -Math.PI / 2; // 0° = top
+
+  players.forEach((name, i) => {
+    const a0 = startOff + i * step;
+    const a1 = a0 + step;
+    const col = SECTOR_COLORS[i % SECTOR_COLORS.length];
+    const isHit = i === highlightIdx;
+
+    // Sector fill
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.arc(CX, CY, OUTER_R, a0, a1);
+    ctx.closePath();
+    ctx.fillStyle = isHit ? col.bright : col.fill;
+    ctx.fill();
+
+    // Sector border
+    ctx.strokeStyle = isHit ? col.border : 'rgba(26,18,8,0.7)';
+    ctx.lineWidth = isHit ? 2.5 : 1.5;
+    ctx.stroke();
+
+    // Pixel name text — rotated to follow sector midpoint
+    const mid = a0 + step / 2;
+    const textR = (OUTER_R + INNER_R) / 2 + 4;
+    const tx = CX + textR * Math.cos(mid);
+    const ty = CY + textR * Math.sin(mid);
+
+    ctx.save();
+    ctx.translate(tx, ty);
+    // Rotate so text reads outward from center
+    ctx.rotate(mid + Math.PI / 2);
+    ctx.font = '5px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = isHit ? '#ffffff' : 'rgba(245,230,200,0.85)';
+    // Truncate long names to fit sector
+    const label = name.length > 7 ? name.slice(0, 6) + '…' : name;
+    ctx.fillText(label, 0, 0);
+    ctx.restore();
+  });
+
+  // Outer ring border
+  ctx.beginPath();
+  ctx.arc(CX, CY, OUTER_R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#5a3e20';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Inner circle mask (covers bottle base)
+  ctx.beginPath();
+  ctx.arc(CX, CY, INNER_R, 0, Math.PI * 2);
+  ctx.fillStyle = '#1a1208';
+  ctx.fill();
+  ctx.strokeStyle = '#5a3e20';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Top tick — tiny pixel arrow showing where bottle neck points
   ctx.save();
-  ctx.translate(50, 50);
+  ctx.translate(CX, CY - OUTER_R - 7);
+  ctx.fillStyle = '#f0a830';
+  // 5×5 downward pixel arrow
+  [[2,0],[1,1],[2,1],[3,1],[0,2],[1,2],[2,2],[3,2],[4,2],[2,3],[2,4]].forEach(([px,py]) => {
+    ctx.fillRect(px*2 - 5, py*2, 2, 2);
+  });
+  ctx.restore();
+}
+
+// ─── Draw rotating pixel bottle (on top of wheel) ────────
+function drawBottle(angleDeg) {
+  ctx.save();
+  ctx.translate(CX, CY);
   ctx.rotate(angleDeg * Math.PI / 180);
 
-  const S = 4; // cell size
-  const amber   = '#f0a830';
-  const amberD  = '#b87018';
-  const amberL  = '#ffd060';
-  const glass   = '#a0c8a0';
-  const glassD  = '#608860';
-  const highlight = '#ffffff';
+  const S = 5; // pixel cell size
+  const amber  = '#f0a830';
+  const amberD = '#b87018';
+  const amberL = '#ffd878';
+  const green  = '#70a870';
+  const greenD = '#406840';
 
-  // Bottle shape (pixel art, relative to center)
-  // Body: tall rectangle, neck narrower
-  const body = [
-    // [col, row, color]  col/row in pixel units relative to center
-    // Body
-    ...rect(-3, -6, 6, 12, amber),
-    // Shading left
-    ...rect(-3, -6, 1, 12, amberD),
-    // Highlight right
-    ...rect(2, -5, 1, 10, amberL),
-    // Neck
-    ...rect(-1, -10, 2, 4, amber),
-    ...rect(1, -10, 1, 4, amberL),
-    // Mouth / cork
-    ...rect(-1, -12, 2, 2, glassD),
-    // Bottom
-    ...rect(-3, 6, 6, 1, amberD),
-    // Label (small rect in middle)
-    ...rect(-2, -2, 4, 3, glassD),
-    ...rect(-1, -1, 2, 1, glass),
+  const pixels = [
+    ...rect(-3,-7, 6,14, amber),   // body
+    ...rect(-3,-7, 1,14, amberD),  // left shade
+    ...rect( 2,-6, 1,12, amberL),  // right highlight
+    ...rect(-1,-11,2, 4, amber),   // neck
+    ...rect( 0,-11,1, 3, amberL),  // neck highlight
+    ...rect(-1,-13,2, 2, greenD),  // cork
+    ...rect(-3, 7, 6, 1, amberD),  // base shadow
+    ...rect(-2,-2, 4, 4, greenD),  // label bg
+    ...rect(-1,-1, 2, 2, green),   // label shine
   ];
 
-  body.forEach(([c, r, color]) => {
+  pixels.forEach(([c, r, color]) => {
     ctx.fillStyle = color;
     ctx.fillRect(c * S, r * S, S, S);
   });
@@ -680,6 +704,16 @@ function rect(c, r, w, h, color) {
       cells.push([c + dc, r + dr, color]);
   return cells;
 }
+
+// ─── Combined frame draw ──────────────────────────────────
+function drawFrame(angleDeg, highlightIdx) {
+  ctx.clearRect(0, 0, 240, 240);
+  drawWheel(highlightIdx);
+  drawBottle(angleDeg);
+}
+
+// Stub kept for spin loop compat
+function highlightPlayer(idx) { /* handled inside drawFrame */ }
 
 // ─── Spin logic ───────────────────────────────────────────
 function spin() {
@@ -698,8 +732,8 @@ function spin() {
   do { nextIdx = Math.floor(Math.random() * players.length); }
   while (players.length > 1 && nextIdx === currentPlayerIdx);
 
-  // Target angle for chosen player
-  const targetPlayerAngle = (360 * nextIdx / players.length);
+  // Target = CENTER of the chosen player's sector
+  const targetPlayerAngle = (nextIdx + 0.5) * (360 / players.length);
 
   // 5–8 full rotations then land on target
   const extraSpins = (5 + Math.floor(Math.random() * 4)) * 360;
@@ -728,8 +762,7 @@ function spin() {
 
     if (elapsed >= totalTime) {
       bottleAngle = startAngle + totalDelta;
-      drawBottle(bottleAngle);
-      highlightPlayer(nextIdx);
+      drawFrame(bottleAngle, nextIdx);
       currentPlayerIdx = nextIdx;
       isSpinning = false;
       document.getElementById('spinBtn').disabled = false;
@@ -741,15 +774,15 @@ function spin() {
     // Linear deceleration: ω drops steadily → very realistic slowdown
     const angleTravelled = omega0 * elapsed - 0.5 * friction * elapsed * elapsed;
     bottleAngle = startAngle + angleTravelled;
-    drawBottle(bottleAngle);
 
-    // Sweep highlight across names as bottle passes over them
+    // Sweep highlight across sectors as bottle passes over them
     const curMod = ((bottleAngle % 360) + 360) % 360;
-    const nearestIdx = Math.round(curMod / (360 / players.length)) % players.length;
+    const n = players.length;
+    const nearestIdx = Math.floor(curMod / (360 / n)) % n;
     if (nearestIdx !== lastHighlighted) {
-      highlightPlayer(nearestIdx);
       lastHighlighted = nearestIdx;
     }
+    drawFrame(bottleAngle, lastHighlighted);
 
     requestAnimationFrame(frame);
   }

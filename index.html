@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spin & Spill ✦ Truth or Dare</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #1a1208;
+    --bg2:      #241a0e;
+    --panel:    #2e2010;
+    --border:   #5a3e20;
+    --amber:    #f0a830;
+    --amber2:   #e8841a;
+    --cream:    #f5e6c8;
+    --soft:     #b89060;
+    --green:    #7bc87a;
+    --red:      #e06060;
+    --pixel:    'Press Start 2P', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; image-rendering: pixelated; }
+
+  body {
+    font-family: var(--pixel);
+    background: var(--bg);
+    color: var(--cream);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Pixel star field */
+  .stars {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  }
+  .star {
+    position: absolute;
+    width: 3px; height: 3px;
+    background: var(--amber);
+    opacity: 0;
+    animation: twinkle var(--d, 3s) var(--del, 0s) infinite;
+  }
+  @keyframes twinkle {
+    0%,100% { opacity: 0; }
+    50%      { opacity: var(--op, 0.6); }
+  }
+
+  /* Scanlines */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none; z-index: 999;
+  }
+
+  /* ── SCREENS ── */
+  .screen {
+    position: relative; z-index: 1;
+    width: min(480px, 96vw);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+  .screen.active { display: flex; }
+
+  /* ── TITLE ── */
+  .title {
+    font-size: clamp(10px, 3vw, 14px);
+    color: var(--amber);
+    text-align: center;
+    text-shadow: 3px 3px 0 #7a4a00, 0 0 20px rgba(240,168,48,0.4);
+    letter-spacing: 2px;
+    line-height: 1.8;
+    animation: flicker 6s infinite;
+  }
+  .subtitle {
+    font-size: 7px;
+    color: var(--soft);
+    letter-spacing: 3px;
+    text-align: center;
+  }
+  @keyframes flicker {
+    0%,95%,100% { opacity: 1; }
+    96%          { opacity: 0.7; }
+    97%          { opacity: 1; }
+    98%          { opacity: 0.8; }
+  }
+
+  /* ── PANEL ── */
+  .panel {
+    background: var(--panel);
+    border: 3px solid var(--border);
+    box-shadow: 4px 4px 0 #0a0804, inset 0 0 0 1px rgba(90,62,32,0.3);
+    padding: 22px;
+    width: 100%;
+  }
+  .panel-title {
+    font-size: 7px;
+    color: var(--soft);
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+  }
+
+  /* ── INPUT ── */
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .px-input {
+    flex: 1;
+    background: var(--bg2);
+    border: 2px solid var(--border);
+    color: var(--cream);
+    font-family: var(--pixel);
+    font-size: 8px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.1s;
+    min-width: 0;
+  }
+  .px-input:focus { border-color: var(--amber); }
+  .px-input::placeholder { color: #5a4020; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: var(--pixel);
+    font-size: 8px;
+    padding: 10px 16px;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: transform 0.05s, box-shadow 0.05s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: translate(2px,2px); box-shadow: none !important; }
+
+  .btn-amber {
+    background: var(--amber);
+    color: var(--bg);
+    box-shadow: 3px 3px 0 #7a4a00;
+  }
+  .btn-amber:hover { background: var(--amber2); }
+
+  .btn-sm {
+    font-size: 7px;
+    padding: 8px 12px;
+    background: var(--bg2);
+    color: var(--soft);
+    border: 2px solid var(--border);
+    box-shadow: 2px 2px 0 #0a0804;
+  }
+  .btn-sm:hover { border-color: var(--amber); color: var(--amber); }
+
+  .btn-truth {
+    background: var(--green);
+    color: var(--bg);
+    box-shadow: 3px 3px 0 #3a6a3a;
+    font-size: 8px;
+    padding: 12px 20px;
+  }
+  .btn-dare {
+    background: var(--red);
+    color: var(--bg);
+    box-shadow: 3px 3px 0 #7a3030;
+    font-size: 8px;
+    padding: 12px 20px;
+  }
+  .btn-truth:hover { filter: brightness(1.1); }
+  .btn-dare:hover  { filter: brightness(1.1); }
+
+  .btn-full { width: 100%; }
+
+  /* ── PLAYER TAGS ── */
+  .player-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .player-tag {
+    background: var(--bg2);
+    border: 2px solid var(--border);
+    padding: 6px 10px;
+    font-size: 7px;
+    color: var(--cream);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .player-tag .rm {
+    color: var(--red);
+    cursor: pointer;
+    font-size: 8px;
+    line-height: 1;
+  }
+  .player-tag .rm:hover { color: #ff8888; }
+
+  /* ── BOTTLE CANVAS ── */
+  #bottleWrap {
+    position: relative;
+    width: 220px; height: 220px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #bottleCanvas {
+    transition: none;
+    filter: drop-shadow(0 0 12px rgba(240,168,48,0.3));
+  }
+
+  /* player name ring */
+  #playerRing {
+    position: absolute; inset: 0;
+    pointer-events: none;
+  }
+  .ring-name {
+    position: absolute;
+    font-size: 6px;
+    color: var(--soft);
+    text-align: center;
+    transform: translate(-50%, -50%);
+    transition: color 0.2s, text-shadow 0.2s;
+    max-width: 60px;
+    word-break: break-word;
+    line-height: 1.4;
+  }
+  .ring-name.active {
+    color: var(--amber);
+    text-shadow: 0 0 8px rgba(240,168,48,0.8);
+  }
+
+  /* ── CURRENT PLAYER ── */
+  .current-player {
+    font-size: 10px;
+    color: var(--amber);
+    text-align: center;
+    text-shadow: 2px 2px 0 #7a4a00;
+    min-height: 20px;
+    letter-spacing: 1px;
+  }
+
+  /* ── CHOICE SCREEN ── */
+  .choice-row {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* ── QUESTION CARD ── */
+  .q-card {
+    background: var(--bg2);
+    border: 3px solid var(--border);
+    padding: 20px;
+    text-align: center;
+    font-size: 8px;
+    line-height: 1.9;
+    color: var(--cream);
+    box-shadow: 4px 4px 0 #0a0804;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+  .q-type-label {
+    font-size: 7px;
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .q-type-label.truth { color: var(--green); }
+  .q-type-label.dare  { color: var(--red); }
+
+  /* ── DIVIDER ── */
+  .px-divider {
+    width: 100%;
+    height: 3px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--border) 0px, var(--border) 4px,
+      transparent 4px, transparent 8px
+    );
+  }
+
+  /* ── SPIN BTN ── */
+  #spinBtn {
+    font-size: 9px;
+    padding: 14px 30px;
+    letter-spacing: 2px;
+  }
+  #spinBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--panel);
+    border: 2px solid var(--amber);
+    font-size: 7px;
+    color: var(--amber);
+    padding: 10px 18px;
+    z-index: 100;
+    transition: transform 0.2s;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* pixel dot loader */
+  .dots { display: flex; gap: 6px; justify-content: center; }
+  .dot {
+    width: 8px; height: 8px;
+    background: var(--amber);
+    animation: bounce 0.8s var(--d,0s) infinite;
+  }
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<!-- ═══════════════ SETUP SCREEN ═══════════════ -->
+<div class="screen active" id="setupScreen">
+  <div>
+    <div class="title">SPIN &amp; SPILL</div>
+    <div class="subtitle">✦ truth or dare ✦</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">✦ Add Players (2–8)</div>
+    <div class="input-row">
+      <input class="px-input" id="nameInput" placeholder="Enter name..." maxlength="14"
+             onkeydown="if(event.key==='Enter') addPlayer()">
+      <button class="btn btn-sm" onclick="addPlayer()">ADD</button>
+    </div>
+    <div class="player-list" id="playerList"></div>
+  </div>
+
+  <button class="btn btn-amber btn-full" id="startBtn" onclick="startGame()" disabled>
+    ▶ START GAME
+  </button>
+</div>
+
+<!-- ═══════════════ GAME SCREEN ═══════════════ -->
+<div class="screen" id="gameScreen">
+  <div class="title" style="font-size:12px;">SPIN &amp; SPILL</div>
+
+  <div id="bottleWrap">
+    <div id="playerRing"></div>
+    <canvas id="bottleCanvas" width="100" height="100"></canvas>
+  </div>
+
+  <div class="current-player" id="currentPlayer">spin to begin!</div>
+
+  <button class="btn btn-amber" id="spinBtn" onclick="spin()">⟳ SPIN</button>
+
+  <div class="px-divider"></div>
+
+  <!-- Truth/Dare choice (hidden initially) -->
+  <div id="choicePanel" style="display:none; width:100%; flex-direction:column; gap:12px; align-items:center;">
+    <div class="subtitle" style="letter-spacing:3px;">choose your fate</div>
+    <div class="choice-row">
+      <button class="btn btn-truth" onclick="showQuestion('truth')">TRUTH</button>
+      <button class="btn btn-dare"  onclick="showQuestion('dare')">DARE</button>
+    </div>
+  </div>
+
+  <!-- Question card (hidden initially) -->
+  <div id="questionPanel" style="display:none; width:100%; flex-direction:column; gap:10px;">
+    <div class="q-type-label" id="qTypeLabel"></div>
+    <div class="q-card" id="qCard"></div>
+    <button class="btn btn-sm btn-full" onclick="nextRound()">▶ NEXT SPIN</button>
+  </div>
+
+  <button class="btn btn-sm" onclick="resetGame()" style="font-size:6px; opacity:0.6;">↩ RESET</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Star field ───────────────────────────────────────────
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 40; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  s.style.cssText = `
+    left:${Math.random()*100}%;
+    top:${Math.random()*100}%;
+    --d:${2+Math.random()*4}s;
+    --del:${Math.random()*5}s;
+    --op:${0.3+Math.random()*0.5};
+  `;
+  starsEl.appendChild(s);
+}
+
+// ─── Data ────────────────────────────────────────────────
+const TRUTHS = [
+  "What's your most embarrassing moment?",
+  "Have you ever lied to a close friend?",
+  "What's the weirdest thing you've eaten?",
+  "What's your biggest fear?",
+  "Have you ever cheated in a game or exam?",
+  "What's something you've never told anyone here?",
+  "Who do you have a crush on right now?",
+  "What's the last lie you told?",
+  "Have you ever ghosted someone?",
+  "What's your most embarrassing guilty pleasure?",
+  "What's the most trouble you've ever been in?",
+  "Have you ever broken something and blamed someone else?",
+  "What's your most-used app and why is it embarrassing?",
+  "What's a bad habit you just can't shake?",
+  "Have you ever faked being sick to avoid something?",
+  "What's the weirdest dream you've had recently?",
+  "Who was your very first crush?",
+  "What's something you're bad at but pretend you're good at?",
+  "Have you ever stolen anything, even something small?",
+  "What's the pettiest thing you've ever done?",
+  "Have you ever eavesdropped on a private conversation?",
+  "What's the most childish thing you still do?",
+  "Have you ever pretended not to see a text?",
+  "What's the worst thing you've said about someone behind their back?",
+  "Have you ever laughed at something you definitely shouldn't have?",
+  "What's a secret talent no one here knows about?",
+  "What's the most embarrassing thing on your search history?",
+  "Have you ever had a crush on a teacher or boss?",
+  "What's the most expensive thing you've ever accidentally broken?",
+  "What's your biggest regret from the past year?",
+  "Have you ever cried at a movie you'd never admit to?",
+  "What's the most ridiculous thing you've spent money on?",
+  "Have you ever sent a text to the wrong person?",
+  "What's something you believed as a kid that was completely wrong?",
+  "Have you ever pretended to like a gift you hated?",
+  "What's the longest you've gone without showering?",
+  "Have you ever walked into the wrong bathroom?",
+  "What's the most embarrassing thing a parent has done in public?",
+  "Have you ever fake-laughed at a joke you didn't understand?",
+  "What's a food you secretly hate but always pretend to like?",
+  "Have you ever fallen asleep somewhere really inappropriate?",
+  "What's the most embarrassing nickname you've ever had?",
+  "Have you ever talked to yourself in public without realizing it?",
+  "What's one thing you would change about yourself?",
+  "Have you ever pretended to be busy to avoid someone?",
+  "What's the biggest white lie you tell regularly?",
+  "Have you ever snuck food somewhere you weren't supposed to?",
+  "What's the most embarrassing thing in your room right now?",
+  "Have you ever tripped or fallen in front of a crowd?",
+  "What's the most dramatic thing you've ever done over something small?",
+  "Have you ever had an imaginary friend past the age of 10?",
+  "What's the worst date or hangout you've ever been on?",
+  "Have you ever pretended to know a song and completely made up the lyrics?",
+  "What's the silliest reason you've ever cried?",
+  "Have you ever gotten lost somewhere really obvious?",
+  "What's something you own way too many of?",
+  "Have you ever stayed friends with someone just because it was convenient?",
+  "What's a movie, show or book you pretend you've seen but haven't?",
+  "Have you ever dialed the wrong number and had a full conversation?",
+  "What's the most embarrassing autocorrect fail you've had?",
+  "Have you ever forgotten someone's name mid-conversation and had to wing it?",
+];
+
+const DARES = [
+  "Do your best impression of someone in the group.",
+  "Speak in an accent for the next 3 rounds.",
+  "Text someone 'I have a confession to make' and wait for the reply.",
+  "Do 15 jumping jacks right now.",
+  "Let the group pick your phone wallpaper for the rest of the game.",
+  "Say the alphabet backwards as fast as you can.",
+  "Post an awkward selfie to your stories for 10 minutes.",
+  "Do your best robot dance for 30 seconds.",
+  "Talk in slow motion for the next round.",
+  "Send a voice note saying 'oink oink' to a random contact.",
+  "Hold the silliest face you can manage for 1 full minute.",
+  "Let someone scroll through your camera roll for 30 seconds.",
+  "Do a dramatic reading of the last text you sent.",
+  "Imitate a cat convincingly for 2 full minutes.",
+  "Text a parent 'guess what?' and read the replies out loud.",
+  "Let the group give you a new nickname for the rest of the game.",
+  "Eat a spoonful of the most random condiment in the kitchen.",
+  "Speak only in rhymes until the next spin.",
+  "Do 10 push-ups or sit-ups right now.",
+  "Stare into someone's eyes without laughing for 30 seconds.",
+  "Let someone style your hair however they want for the next 2 rounds.",
+  "Narrate everything you do in a nature documentary voice for 1 round.",
+  "Do your best impression of a famous person until someone guesses who.",
+  "Moonwalk across the room and back.",
+  "Sing the chorus of any song chosen by the group.",
+  "Let the group write a word on your forehead with a marker.",
+  "Hold a plank for 30 seconds.",
+  "Describe yourself in 3 words — but the group decides if they're accurate.",
+  "Try to lick your elbow for 10 seconds.",
+  "Stand up and do a dramatic monologue about your day.",
+  "Do your best catwalk across the room.",
+  "Act out a scene from a movie that the group picks.",
+  "Talk like a pirate for the next 3 rounds.",
+  "Let someone choose a contact to send a voice message to.",
+  "Do the worm — or attempt it.",
+  "Balance a spoon on your nose for 10 seconds.",
+  "Let the group ask your phone's AI assistant an embarrassing question.",
+  "Do 20 seconds of aggressive air guitar.",
+  "Pretend to be a customer service robot for the next round.",
+  "Let someone post something on your social media for 5 minutes.",
+  "Speak in a whisper for the next 2 rounds.",
+  "Act out an emotion chosen by the group until they guess it.",
+  "Do your best impression of a melting ice cream.",
+  "Hop on one foot for a full minute.",
+  "Change your contact name in someone's phone to something silly.",
+  "Tell a 60-second dramatic story using only hand gestures.",
+  "Let the person to your left pick a song you must hum for 1 round.",
+  "Attempt to juggle 3 objects — whatever's nearby.",
+  "Do your best impression of a slow-motion explosion.",
+  "Let the group rate your resting face out of 10.",
+  "Walk around the room pretending to be on a tightrope.",
+  "Do a 30-second stand-up comedy routine about your life.",
+  "Let someone draw a mustache on you with a marker.",
+  "Speak without closing your mouth for 1 full minute.",
+  "Freestyle rap your full name and where you're from.",
+  "Let the group assign you a catchphrase you must use for 2 rounds.",
+  "Do your best slow-motion run across the room.",
+  "Pretend to be a news anchor and report on what's happening in the room.",
+  "Let the group pick a word you're banned from saying for 3 rounds.",
+  "Try to say 'toy boat' ten times fast without messing up.",
+  "Do your best impression of a grandparent telling a story.",
+];
+
+let players = [];
+let currentPlayerIdx = -1;
+let isSpinning = false;
+let bottleAngle = 0;
+
+// ─── Player management ───────────────────────────────────
+function addPlayer() {
+  const inp = document.getElementById('nameInput');
+  const name = inp.value.trim();
+  if (!name) return;
+  if (players.length >= 8) { showToast('Max 8 players!'); return; }
+  if (players.includes(name)) { showToast('Name already added!'); return; }
+  players.push(name);
+  inp.value = '';
+  renderPlayerList();
+  inp.focus();
+}
+
+function removePlayer(i) {
+  players.splice(i, 1);
+  renderPlayerList();
+}
+
+function renderPlayerList() {
+  const list = document.getElementById('playerList');
+  list.innerHTML = players.map((p, i) =>
+    `<div class="player-tag">
+      ${p}
+      <span class="rm" onclick="removePlayer(${i})">✕</span>
+    </div>`
+  ).join('');
+  document.getElementById('startBtn').disabled = players.length < 2;
+}
+
+// ─── Screens ─────────────────────────────────────────────
+function startGame() {
+  document.getElementById('setupScreen').classList.remove('active');
+  document.getElementById('gameScreen').classList.add('active');
+  renderRing();
+  drawBottle(0);
+}
+
+function resetGame() {
+  players = [];
+  currentPlayerIdx = -1;
+  isSpinning = false;
+  bottleAngle = 0;
+  document.getElementById('playerList').innerHTML = '';
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('gameScreen').classList.remove('active');
+  document.getElementById('setupScreen').classList.add('active');
+  hideChoiceAndQuestion();
+}
+
+// ─── Player ring ─────────────────────────────────────────
+function renderRing() {
+  const ring = document.getElementById('playerRing');
+  const cx = 110, cy = 110, r = 95;
+  ring.innerHTML = '';
+  players.forEach((p, i) => {
+    const angle = (2 * Math.PI * i / players.length) - Math.PI / 2;
+    const x = cx + r * Math.cos(angle);
+    const y = cy + r * Math.sin(angle);
+    const div = document.createElement('div');
+    div.className = 'ring-name';
+    div.id = `rn-${i}`;
+    div.style.left = x + 'px';
+    div.style.top  = y + 'px';
+    div.textContent = p;
+    ring.appendChild(div);
+  });
+}
+
+function highlightPlayer(idx) {
+  players.forEach((_, i) => {
+    const el = document.getElementById(`rn-${i}`);
+    if (el) el.classList.toggle('active', i === idx);
+  });
+}
+
+// ─── Pixel bottle on canvas ───────────────────────────────
+const canvas = document.getElementById('bottleCanvas');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+// Pixel art bottle: each cell is 5×5 px, on a 20×20 grid centered in 100×100
+function drawBottle(angleDeg) {
+  ctx.clearRect(0, 0, 100, 100);
+  ctx.save();
+  ctx.translate(50, 50);
+  ctx.rotate(angleDeg * Math.PI / 180);
+
+  const S = 4; // cell size
+  const amber   = '#f0a830';
+  const amberD  = '#b87018';
+  const amberL  = '#ffd060';
+  const glass   = '#a0c8a0';
+  const glassD  = '#608860';
+  const highlight = '#ffffff';
+
+  // Bottle shape (pixel art, relative to center)
+  // Body: tall rectangle, neck narrower
+  const body = [
+    // [col, row, color]  col/row in pixel units relative to center
+    // Body
+    ...rect(-3, -6, 6, 12, amber),
+    // Shading left
+    ...rect(-3, -6, 1, 12, amberD),
+    // Highlight right
+    ...rect(2, -5, 1, 10, amberL),
+    // Neck
+    ...rect(-1, -10, 2, 4, amber),
+    ...rect(1, -10, 1, 4, amberL),
+    // Mouth / cork
+    ...rect(-1, -12, 2, 2, glassD),
+    // Bottom
+    ...rect(-3, 6, 6, 1, amberD),
+    // Label (small rect in middle)
+    ...rect(-2, -2, 4, 3, glassD),
+    ...rect(-1, -1, 2, 1, glass),
+  ];
+
+  body.forEach(([c, r, color]) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(c * S, r * S, S, S);
+  });
+
+  ctx.restore();
+}
+
+function rect(c, r, w, h, color) {
+  const cells = [];
+  for (let dc = 0; dc < w; dc++)
+    for (let dr = 0; dr < h; dr++)
+      cells.push([c + dc, r + dr, color]);
+  return cells;
+}
+
+// ─── Spin logic ───────────────────────────────────────────
+function spin() {
+  if (isSpinning || players.length < 2) return;
+  isSpinning = true;
+  hideChoiceAndQuestion();
+  document.getElementById('spinBtn').disabled = true;
+  document.getElementById('currentPlayer').textContent = '...';
+  players.forEach((_, i) => {
+    const el = document.getElementById(`rn-${i}`);
+    if (el) el.classList.remove('active');
+  });
+
+  // Pick random player (different from current if possible)
+  let nextIdx;
+  do { nextIdx = Math.floor(Math.random() * players.length); }
+  while (players.length > 1 && nextIdx === currentPlayerIdx);
+
+  // Angle for that player
+  const playerAngle = (360 * nextIdx / players.length);
+  // Total spin: 4–7 full rotations + target angle
+  const extraSpins = (4 + Math.floor(Math.random() * 4)) * 360;
+  const targetAngle = bottleAngle + extraSpins + (playerAngle - (bottleAngle % 360) + 360) % 360;
+
+  const duration = 2800;
+  const startAngle = bottleAngle;
+  const startTime = performance.now();
+
+  function easeOut(t) {
+    return 1 - Math.pow(1 - t, 4);
+  }
+
+  function frame(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    const current = startAngle + (targetAngle - startAngle) * easeOut(t);
+    bottleAngle = current;
+    drawBottle(current);
+
+    if (t < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      bottleAngle = targetAngle;
+      drawBottle(targetAngle);
+      currentPlayerIdx = nextIdx;
+      isSpinning = false;
+      document.getElementById('spinBtn').disabled = false;
+      document.getElementById('currentPlayer').textContent = players[nextIdx].toUpperCase() + '!';
+      highlightPlayer(nextIdx);
+      showChoicePanel();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// ─── Choice & Question ────────────────────────────────────
+function showChoicePanel() {
+  document.getElementById('choicePanel').style.display = 'flex';
+  document.getElementById('questionPanel').style.display = 'none';
+}
+
+function hideChoiceAndQuestion() {
+  document.getElementById('choicePanel').style.display = 'none';
+  document.getElementById('questionPanel').style.display = 'none';
+}
+
+function showQuestion(type) {
+  document.getElementById('choicePanel').style.display = 'none';
+  const panel = document.getElementById('questionPanel');
+  const label = document.getElementById('qTypeLabel');
+  const card  = document.getElementById('qCard');
+
+  const pool = type === 'truth' ? TRUTHS : DARES;
+  const q = pool[Math.floor(Math.random() * pool.length)];
+
+  label.textContent = '✦ ' + type.toUpperCase() + ' ✦';
+  label.className = 'q-type-label ' + type;
+  card.textContent = q;
+  panel.style.display = 'flex';
+}
+
+function nextRound() {
+  document.getElementById('questionPanel').style.display = 'none';
+  document.getElementById('currentPlayer').textContent = 'spin again!';
+  players.forEach((_, i) => {
+    const el = document.getElementById(`rn-${i}`);
+    if (el) el.classList.remove('active');
+  });
+}
+
+// ─── Toast ────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>

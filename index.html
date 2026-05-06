@@ -698,39 +698,60 @@ function spin() {
   do { nextIdx = Math.floor(Math.random() * players.length); }
   while (players.length > 1 && nextIdx === currentPlayerIdx);
 
-  // Angle for that player
-  const playerAngle = (360 * nextIdx / players.length);
-  // Total spin: 4–7 full rotations + target angle
-  const extraSpins = (4 + Math.floor(Math.random() * 4)) * 360;
-  const targetAngle = bottleAngle + extraSpins + (playerAngle - (bottleAngle % 360) + 360) % 360;
+  // Target angle for chosen player
+  const targetPlayerAngle = (360 * nextIdx / players.length);
 
-  const duration = 2800;
+  // 5–8 full rotations then land on target
+  const extraSpins = (5 + Math.floor(Math.random() * 4)) * 360;
+  const currentMod = ((bottleAngle % 360) + 360) % 360;
+  const delta = ((targetPlayerAngle - currentMod) + 360) % 360;
+  const totalDelta = extraSpins + delta;
+
+  // Physics: constant deceleration (friction model)
+  // angle(t) = ω0·t − ½·friction·t²
+  // stops when ω0 = friction·T  →  T = ω0/friction
+  // totalDelta = ω0²/(2·friction)  →  ω0 = sqrt(2·friction·totalDelta)
+  const friction = 150 + Math.random() * 70; // deg/s²
+  const omega0   = Math.sqrt(2 * friction * totalDelta); // initial deg/s
+  const totalTime = omega0 / friction; // seconds until full stop
+
   const startAngle = bottleAngle;
-  const startTime = performance.now();
-
-  function easeOut(t) {
-    return 1 - Math.pow(1 - t, 4);
-  }
+  let lastTime = null;
+  let elapsed = 0;
+  let lastHighlighted = -1;
 
   function frame(now) {
-    const elapsed = now - startTime;
-    const t = Math.min(elapsed / duration, 1);
-    const current = startAngle + (targetAngle - startAngle) * easeOut(t);
-    bottleAngle = current;
-    drawBottle(current);
+    if (!lastTime) lastTime = now;
+    const dt = Math.min((now - lastTime) / 1000, 0.05); // cap dt for tab-switch glitches
+    lastTime = now;
+    elapsed += dt;
 
-    if (t < 1) {
-      requestAnimationFrame(frame);
-    } else {
-      bottleAngle = targetAngle;
-      drawBottle(targetAngle);
+    if (elapsed >= totalTime) {
+      bottleAngle = startAngle + totalDelta;
+      drawBottle(bottleAngle);
+      highlightPlayer(nextIdx);
       currentPlayerIdx = nextIdx;
       isSpinning = false;
       document.getElementById('spinBtn').disabled = false;
       document.getElementById('currentPlayer').textContent = players[nextIdx].toUpperCase() + '!';
-      highlightPlayer(nextIdx);
       showChoicePanel();
+      return;
     }
+
+    // Linear deceleration: ω drops steadily → very realistic slowdown
+    const angleTravelled = omega0 * elapsed - 0.5 * friction * elapsed * elapsed;
+    bottleAngle = startAngle + angleTravelled;
+    drawBottle(bottleAngle);
+
+    // Sweep highlight across names as bottle passes over them
+    const curMod = ((bottleAngle % 360) + 360) % 360;
+    const nearestIdx = Math.round(curMod / (360 / players.length)) % players.length;
+    if (nearestIdx !== lastHighlighted) {
+      highlightPlayer(nearestIdx);
+      lastHighlighted = nearestIdx;
+    }
+
+    requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 }
